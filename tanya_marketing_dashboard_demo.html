@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tanya Marketing Dashboard Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f4f0;
+    --color-background-info: #e6f1fb;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-text-info: #185fa5;
+    --color-border-tertiary: rgba(0,0,0,0.15);
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --color-border-info: #b5d4f4;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1e1e1c;
+      --color-background-secondary: #2a2a28;
+      --color-background-info: #0c447c;
+      --color-text-primary: #f0ede6;
+      --color-text-secondary: #a0a09a;
+      --color-text-info: #85b7eb;
+      --color-border-tertiary: rgba(255,255,255,0.15);
+      --color-border-secondary: rgba(255,255,255,0.3);
+      --color-border-info: #185fa5;
+    }
+  }
+  body { background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); padding: 1.5rem; }
+  .db-tab{padding:6px 14px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:transparent;color:var(--color-text-secondary)}
+  .db-tab.act{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+  .vbtn{padding:5px 14px;font-size:12px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:transparent;color:var(--color-text-secondary)}
+  .vbtn.act{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500}
+  .vbtn:first-child{border-radius:var(--border-radius-md) 0 0 var(--border-radius-md)}
+  .vbtn:last-child{border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;border-left:none}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.04em}
+  td{padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+  tr:last-child td{border-bottom:none}
+  select{padding:4px 8px;font-size:13px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer}
+</style>
+</head>
+<body>
+
+<div style="max-width:900px;margin:0 auto;padding:1rem 0;font-family:var(--font-sans)">
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div id="client-dot" style="width:10px;height:10px;border-radius:50%;background:#1D9E75;flex-shrink:0"></div>
+    <select id="client-sel" onchange="setClient(this.value)">
+      <option value="tanya">Tanya's Digital</option>
+      <option value="fresh">Fresh Dental</option>
+      <option value="urban">Urban Fitness</option>
+    </select>
+    <span style="font-size:12px;color:var(--color-text-secondary)">March 2025</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--color-text-secondary)">View:</span>
+    <div style="display:flex">
+      <button class="vbtn act" onclick="setView('internal',this)">Internal</button>
+      <button class="vbtn" onclick="setView('client',this)">Client-Facing</button>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap">
+  <button class="db-tab act" onclick="setTab('overview',this)">Overview</button>
+  <button class="db-tab" onclick="setTab('gads',this)">Google Ads</button>
+  <button class="db-tab" onclick="setTab('ga4',this)">GA4 Analytics</button>
+  <button class="db-tab" onclick="setTab('meta',this)">Meta Ads</button>
+</div>
+
+<div id="view-badge" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:1rem;padding:4px 10px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);font-size:11px;color:var(--color-text-secondary)">
+  <span id="view-icon">&#9632;</span> <span id="view-label">Internal diagnostic view — all metrics visible</span>
+</div>
+
+<div id="content"></div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let currentView='internal',currentTab='overview',currentClient='tanya';
+let charts={};
+
+const clients={
+  tanya:{name:"Tanya's Digital",color:'#1D9E75',
+    gads:{spend:4200,clicks:3840,conv:142,cpa:29.58,roas:4.2,cpc:1.09,ctr:4.8,
+      mom:{spend:8,clicks:11,conv:12,cpa:-6,roas:9},
+      camps:[{n:'Brand Search',spend:1200,clicks:1840,conv:68,cpa:17.6,roas:6.1},{n:'Non-Brand Search',spend:1800,clicks:1560,conv:52,cpa:34.6,roas:3.8},{n:'Performance Max',spend:1200,clicks:440,conv:22,cpa:54.5,roas:2.4}]},
+    ga4:{sessions:12450,users:9320,engRate:68,keyEvents:287,
+      mom:{sessions:15,users:18,engRate:3,keyEvents:22},
+      srcs:[{s:'google / cpc',sessions:5200,conv:142,rate:'2.73%'},{s:'organic / google',sessions:3840,conv:87,rate:'2.27%'},{s:'direct / none',sessions:1920,conv:34,rate:'1.77%'},{s:'meta / cpc',sessions:890,conv:18,rate:'2.02%'}]},
+    meta:{spend:2800,reach:45200,clicks:1920,leads:89,cpl:31.46,freq:2.4,
+      mom:{spend:5,reach:18,clicks:14,leads:22,cpl:-14},
+      camps:[{n:'Lead Gen — Retargeting',spend:980,reach:8400,leads:48,cpl:20.4},{n:'Lead Gen — Prospecting',spend:1200,reach:28000,leads:29,cpl:41.4},{n:'Awareness — Cold',spend:620,reach:8800,leads:12,cpl:51.7}]}},
+  fresh:{name:'Fresh Dental',color:'#378ADD',
+    gads:{spend:3100,clicks:2640,conv:98,cpa:31.6,roas:3.8,cpc:1.17,ctr:3.9,
+      mom:{spend:-3,clicks:5,conv:8,cpa:-5,roas:6},
+      camps:[{n:'Dentist Near Me',spend:1400,clicks:1200,conv:54,cpa:25.9,roas:5.2},{n:'Implants Campaign',spend:1100,clicks:880,conv:28,cpa:39.3,roas:3.1},{n:'Display Remarketing',spend:600,clicks:560,conv:16,cpa:37.5,roas:2.8}]},
+    ga4:{sessions:8900,users:6720,engRate:72,keyEvents:198,
+      mom:{sessions:9,users:12,engRate:5,keyEvents:15},
+      srcs:[{s:'google / cpc',sessions:3800,conv:98,rate:'2.58%'},{s:'organic / google',sessions:2900,conv:62,rate:'2.14%'},{s:'direct / none',sessions:1400,conv:24,rate:'1.71%'},{s:'meta / cpc',sessions:560,conv:12,rate:'2.14%'}]},
+    meta:{spend:1800,reach:28400,clicks:1120,leads:54,cpl:33.3,freq:2.1,
+      mom:{spend:10,reach:14,clicks:9,leads:17,cpl:-7},
+      camps:[{n:'Booking — Retargeting',spend:700,reach:5200,leads:28,cpl:25.0},{n:'New Patient Promo',spend:800,reach:16800,leads:18,cpl:44.4},{n:'Brand Awareness',spend:300,reach:6400,leads:8,cpl:37.5}]}},
+  urban:{name:'Urban Fitness',color:'#D85A30',
+    gads:{spend:5800,clicks:5200,conv:210,cpa:27.6,roas:5.1,cpc:1.12,ctr:5.2,
+      mom:{spend:15,clicks:18,conv:24,cpa:-7,roas:12},
+      camps:[{n:'Gym Membership',spend:2400,clicks:2200,conv:98,cpa:24.5,roas:6.2},{n:'Personal Training',spend:1800,clicks:1600,conv:72,cpa:25.0,roas:5.4},{n:'Class Passes',spend:1600,clicks:1400,conv:40,cpa:40.0,roas:3.5}]},
+    ga4:{sessions:18200,users:14800,engRate:74,keyEvents:420,
+      mom:{sessions:22,users:25,engRate:4,keyEvents:31},
+      srcs:[{s:'google / cpc',sessions:7800,conv:210,rate:'2.69%'},{s:'organic / google',sessions:5400,conv:108,rate:'2.00%'},{s:'direct / none',sessions:2800,conv:52,rate:'1.86%'},{s:'instagram / cpc',sessions:1600,conv:38,rate:'2.38%'}]},
+    meta:{spend:3900,reach:68000,clicks:2800,leads:142,cpl:27.5,freq:2.8,
+      mom:{spend:12,reach:28,clicks:22,leads:35,cpl:-17},
+      camps:[{n:'Membership Drive — RT',spend:1400,reach:12000,leads:68,cpl:20.6},{n:'New Year Promo',spend:1600,reach:38000,leads:52,cpl:30.8},{n:'PT Package Offer',spend:900,reach:18000,leads:22,cpl:40.9}]}}
+};
+
+function badge(val,positiveIsGood=true){
+  if(val===0)return`<span style="color:var(--color-text-secondary);font-size:11px">— 0%</span>`;
+  const good=(positiveIsGood?val>0:val<0);
+  const clr=good?'#0F6E56':'#993C1D';
+  const icon=val>0?'▲':'▼';
+  return`<span style="color:${clr};font-size:11px;font-weight:500">${icon} ${Math.abs(val)}%</span>`;
+}
+
+function sc(label,value,mom,positiveIsGood=true){
+  return`<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;min-width:0">
+    <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">${label}</div>
+    <div style="font-size:21px;font-weight:500;color:var(--color-text-primary);line-height:1.15">${value}</div>
+    ${mom!==undefined?`<div style="margin-top:4px">${badge(mom,positiveIsGood)} <span style="font-size:11px;color:var(--color-text-secondary)">vs Feb</span></div>`:''}
+  </div>`;
+}
+
+function card(inner,title=''){
+  return`<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem">
+    ${title?`<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px">${title}</div>`:''}
+    ${inner}
+  </div>`;
+}
+
+function grid(items){return`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem">${items.join('')}</div>`;}
+function gridWide(items){return`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem">${items.join('')}</div>`;}
+function fmt(n){return n>=1000?(n/1000).toFixed(1)+'k':n.toString();}
+function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={};}
+
+function renderContent(){
+  const d=clients[currentClient];
+  destroyCharts();
+  const el=document.getElementById('content');
+  if(currentTab==='overview')renderOverview(d,el);
+  else if(currentTab==='gads')renderGads(d,el);
+  else if(currentTab==='ga4')renderGA4(d,el);
+  else renderMeta(d,el);
+}
+
+function renderOverview(d,el){
+  const totalSpend=d.gads.spend+d.meta.spend;
+  const totalConv=d.gads.conv+d.meta.leads;
+  const blendCPA=(totalSpend/totalConv).toFixed(2);
+  const months=['Oct','Nov','Dec','Jan','Feb','Mar'];
+  const baseConv=Math.round(totalConv*0.68);
+  const convData=[baseConv,Math.round(baseConv*1.08),Math.round(baseConv*1.16),Math.round(baseConv*1.12),Math.round(baseConv*1.23),totalConv];
+  const baseSpend=Math.round(totalSpend*0.82);
+  const spendData=[baseSpend,Math.round(baseSpend*1.05),Math.round(baseSpend*1.19),Math.round(baseSpend*1.1),Math.round(baseSpend*1.15),totalSpend];
+
+  if(currentView==='internal'){
+    el.innerHTML=
+      grid([
+        sc('Total Spend','$'+totalSpend.toLocaleString(),9,false),
+        sc('Total Conversions',totalConv,17),
+        sc('Blended CPA','$'+blendCPA,-8,false),
+        sc('GA4 Sessions',fmt(d.ga4.sessions),d.ga4.mom.sessions)
+      ])+
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.25rem">
+        <div>${card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Conversions vs Spend — 6 months</div><div style="position:relative;height:190px"><canvas id="ch-trend"></canvas></div>`)}</div>
+        <div>${card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Spend by platform</div><div style="position:relative;height:190px"><canvas id="ch-plat"></canvas></div>`)}</div>
+      </div>`+
+      card(`<table>
+        <thead><tr><th>Platform</th><th>Spend</th><th>Conversions</th><th>CPA / CPL</th><th>ROAS</th><th>MoM conv.</th></tr></thead>
+        <tbody>
+          <tr><td>Google Ads</td><td>$${d.gads.spend.toLocaleString()}</td><td>${d.gads.conv}</td><td>$${d.gads.cpa}</td><td>${d.gads.roas}x</td><td>${badge(d.gads.mom.conv)}</td></tr>
+          <tr><td>Meta Ads</td><td>$${d.meta.spend.toLocaleString()}</td><td>${d.meta.leads} leads</td><td>$${d.meta.cpl}</td><td>—</td><td>${badge(d.meta.mom.leads)}</td></tr>
+          <tr><td style="color:var(--color-text-secondary)">Organic (GA4)</td><td>—</td><td>${d.ga4.keyEvents} events</td><td>—</td><td>—</td><td>${badge(d.ga4.mom.keyEvents)}</td></tr>
+        </tbody>
+      </table>`,'Platform breakdown');
+  } else {
+    el.innerHTML=
+      `<div style="text-align:center;margin-bottom:1.25rem">
+        <div style="font-size:18px;font-weight:500;color:var(--color-text-primary)">${clients[currentClient].name}</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px">Performance Summary — March 2025 vs February 2025</div>
+      </div>`+
+      gridWide([
+        sc('Total Ad Spend','$'+totalSpend.toLocaleString(),9,false),
+        sc('Total Conversions',totalConv,17),
+        sc('Cost per Conversion','$'+blendCPA,-8,false),
+        sc('Website Sessions',fmt(d.ga4.sessions),d.ga4.mom.sessions)
+      ])+
+      card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Conversion trend — last 6 months</div><div style="position:relative;height:210px"><canvas id="ch-trend"></canvas></div>`);
+  }
+
+  setTimeout(()=>{
+    const te=document.getElementById('ch-trend');
+    if(te) charts['trend']=new Chart(te,{type:'line',data:{labels:months,datasets:[{label:'Conversions',data:convData,borderColor:d.color,backgroundColor:d.color+'22',fill:true,tension:0.35,pointRadius:3,yAxisID:'y'},{label:'Spend',data:spendData,borderColor:'#888780',borderDash:[4,3],tension:0.35,pointRadius:0,backgroundColor:'transparent',yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{position:'left',ticks:{font:{size:10}},grid:{color:'rgba(128,128,128,0.12)'}},y1:{position:'right',ticks:{font:{size:10},callback:v=>'$'+(v/1000).toFixed(1)+'k'},grid:{display:false}}}}});
+    const pe=document.getElementById('ch-plat');
+    if(pe) charts['plat']=new Chart(pe,{type:'bar',data:{labels:['Google Ads','Meta Ads'],datasets:[{data:[d.gads.spend,d.meta.spend],backgroundColor:[d.color,d.color+'88'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:10},callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(128,128,128,0.12)'}},x:{ticks:{font:{size:11}}}}}});
+  },80);
+}
+
+function renderGads(d,el){
+  const g=d.gads;
+  const months=['Oct','Nov','Dec','Jan','Feb','Mar'];
+  const cpaH=[38.2,36.8,35.1,33.9,31.4,g.cpa];
+  if(currentView==='internal'){
+    el.innerHTML=
+      grid([
+        sc('Spend','$'+g.spend.toLocaleString(),g.mom.spend,false),
+        sc('Clicks',g.clicks.toLocaleString(),g.mom.clicks),
+        sc('Conversions',g.conv,g.mom.conv),
+        sc('CPA','$'+g.cpa,g.mom.cpa,false),
+        sc('ROAS',g.roas+'x',g.mom.roas)
+      ])+
+      `<div style="display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:1.25rem">
+        <div>${card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">CPA trend — 6 months (lower is better)</div><div style="position:relative;height:170px"><canvas id="ch-gcpa"></canvas></div>`)}</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;flex:1;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em">Avg CPC</span>
+            <span style="font-size:16px;font-weight:500">$${g.cpc}</span>
+          </div>
+          <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;flex:1;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em">CTR</span>
+            <span style="font-size:16px;font-weight:500">${g.ctr}%</span>
+          </div>
+          <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;flex:1;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em">Conv Rate</span>
+            <span style="font-size:16px;font-weight:500">${(g.conv/g.clicks*100).toFixed(2)}%</span>
+          </div>
+        </div>
+      </div>`+
+      card(`<table>
+        <thead><tr><th>Campaign</th><th>Spend</th><th>Clicks</th><th>Conv.</th><th>CPA</th><th>ROAS</th></tr></thead>
+        <tbody>${g.camps.map(c=>`<tr><td>${c.n}</td><td>$${c.spend.toLocaleString()}</td><td>${c.clicks.toLocaleString()}</td><td>${c.conv}</td><td style="color:${c.cpa<35?'#0F6E56':'#993C1D'};font-weight:500">$${c.cpa}</td><td>${c.roas}x</td></tr>`).join('')}</tbody>
+      </table>`,'Campaign breakdown');
+  } else {
+    el.innerHTML=
+      gridWide([
+        sc('Ad Spend','$'+g.spend.toLocaleString(),g.mom.spend,false),
+        sc('Conversions',g.conv,g.mom.conv),
+        sc('Return on Ad Spend',g.roas+'x',g.mom.roas),
+        sc('Cost per Conversion','$'+g.cpa,g.mom.cpa,false)
+      ])+
+      card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Conversions by campaign</div><div style="position:relative;height:${g.camps.length*50+60}px"><canvas id="ch-gcpa"></canvas></div>`);
+  }
+  setTimeout(()=>{
+    const e=document.getElementById('ch-gcpa');
+    if(!e)return;
+    if(currentView==='internal'){
+      charts['gcpa']=new Chart(e,{type:'line',data:{labels:months,datasets:[{label:'CPA',data:cpaH,borderColor:d.color,backgroundColor:d.color+'22',fill:true,tension:0.3,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:10},callback:v=>'$'+v},grid:{color:'rgba(128,128,128,0.12)'}},x:{ticks:{font:{size:10}}}}}});
+    } else {
+      charts['gcpa']=new Chart(e,{type:'bar',data:{labels:g.camps.map(c=>c.n),datasets:[{data:g.camps.map(c=>c.conv),backgroundColor:[d.color,d.color+'aa',d.color+'55'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:11}}}}}});
+    }
+  },80);
+}
+
+function renderGA4(d,el){
+  const g=d.ga4;
+  if(currentView==='internal'){
+    el.innerHTML=
+      grid([
+        sc('Sessions',fmt(g.sessions),g.mom.sessions),
+        sc('Users',fmt(g.users),g.mom.users),
+        sc('Engagement Rate',g.engRate+'%',g.mom.engRate),
+        sc('Key Events',g.keyEvents,g.mom.keyEvents)
+      ])+
+      card(`<table>
+        <thead><tr><th>Source / Medium</th><th>Sessions</th><th>Conversions</th><th>Conv. rate</th></tr></thead>
+        <tbody>${g.srcs.map(s=>`<tr><td style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary)">${s.s}</td><td>${s.sessions.toLocaleString()}</td><td>${s.conv}</td><td style="color:#0F6E56">${s.rate}</td></tr>`).join('')}</tbody>
+      </table>`,'Traffic acquisition — Source / Medium');
+  } else {
+    el.innerHTML=
+      gridWide([
+        sc('Total Traffic',fmt(g.sessions),g.mom.sessions),
+        sc('Unique Users',fmt(g.users),g.mom.users),
+        sc('Engagement Rate',g.engRate+'%',g.mom.engRate)
+      ])+
+      card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Traffic by source</div><div style="position:relative;height:220px"><canvas id="ch-ga4src"></canvas></div>`);
+    setTimeout(()=>{
+      const e=document.getElementById('ch-ga4src');
+      if(e) charts['ga4src']=new Chart(e,{type:'doughnut',data:{labels:g.srcs.map(s=>s.s.split(' / ')[0]),datasets:[{data:g.srcs.map(s=>s.sessions),backgroundColor:[d.color,'#378ADD','#888780','#BA7517'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},padding:12}}}}});
+    },80);
+  }
+}
+
+function renderMeta(d,el){
+  const m=d.meta;
+  if(currentView==='internal'){
+    el.innerHTML=
+      grid([
+        sc('Spend','$'+m.spend.toLocaleString(),m.mom.spend,false),
+        sc('Reach',fmt(m.reach),m.mom.reach),
+        sc('Link Clicks',m.clicks.toLocaleString(),m.mom.clicks),
+        sc('Leads',m.leads,m.mom.leads),
+        sc('CPL','$'+m.cpl.toFixed(2),m.mom.cpl,false)
+      ])+
+      card(`<table>
+        <thead><tr><th>Campaign</th><th>Spend</th><th>Reach</th><th>Leads</th><th>CPL</th></tr></thead>
+        <tbody>${m.camps.map(c=>`<tr><td>${c.n}</td><td>$${c.spend.toLocaleString()}</td><td>${c.reach.toLocaleString()}</td><td>${c.leads}</td><td style="color:${c.cpl<35?'#0F6E56':'#993C1D'};font-weight:500">$${c.cpl.toFixed(1)}</td></tr>`).join('')}</tbody>
+      </table>`,'Campaign breakdown')+
+      `<div style="margin-top:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 14px;font-size:12px;color:var(--color-text-secondary)">
+        Avg Frequency: <strong style="color:var(--color-text-primary)">${m.freq}x</strong>&nbsp;&nbsp;|&nbsp;&nbsp;
+        CTR: <strong style="color:var(--color-text-primary)">${(m.clicks/m.reach*100).toFixed(2)}%</strong>&nbsp;&nbsp;|&nbsp;&nbsp;
+        Lead rate: <strong style="color:var(--color-text-primary)">${(m.leads/m.clicks*100).toFixed(1)}%</strong>
+      </div>`;
+  } else {
+    el.innerHTML=
+      gridWide([
+        sc('Ad Spend','$'+m.spend.toLocaleString(),m.mom.spend,false),
+        sc('Total Reach',fmt(m.reach),m.mom.reach),
+        sc('Leads Generated',m.leads,m.mom.leads),
+        sc('Cost per Lead','$'+m.cpl.toFixed(2),m.mom.cpl,false)
+      ])+
+      card(`<div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">Leads by campaign</div><div style="position:relative;height:${m.camps.length*52+60}px"><canvas id="ch-metaleads"></canvas></div>`);
+    setTimeout(()=>{
+      const e=document.getElementById('ch-metaleads');
+      if(e) charts['metaleads']=new Chart(e,{type:'bar',data:{labels:m.camps.map(c=>c.n),datasets:[{data:m.camps.map(c=>c.leads),backgroundColor:[d.color,d.color+'aa',d.color+'55'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:11}}}}}});
+    },80);
+  }
+}
+
+function setTab(tab,btn){
+  currentTab=tab;
+  document.querySelectorAll('.db-tab').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  renderContent();
+}
+
+function setView(view,btn){
+  currentView=view;
+  document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  const vbadge=document.getElementById('view-badge');
+  const lbl=document.getElementById('view-label');
+  if(view==='internal'){
+    vbadge.style.background='var(--color-background-secondary)';
+    vbadge.style.color='var(--color-text-secondary)';
+    lbl.textContent='Internal diagnostic view — all metrics visible';
+  } else {
+    vbadge.style.background='var(--color-background-info)';
+    vbadge.style.color='var(--color-text-info)';
+    lbl.textContent='Client-facing view — simplified & polished';
+  }
+  renderContent();
+}
+
+function setClient(val){
+  currentClient=val;
+  document.getElementById('client-dot').style.background=clients[val].color;
+  renderContent();
+}
+
+renderContent();
+</script>
+</body>
+</html>
